@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Science Camp 2024 - Raspberry Pi Hub</title>
+    <style>
+        body {
+            background-color: #122b26;
+            color: #ffffff;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 42px; /* Default font size for most text */
+            display: flex;
+            flex-direction: column; /* Ensure vertical centering */
+            justify-content: center; /* Center content vertically */
+            align-items: center; /* Center content horizontally */
+            height: 100vh; /* Full viewport height */
+            margin: 0; /* Remove default margin}??{+__}
+        }
+
+        .sensore-data-wrapper {
+            max-width: 1200px;
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 15px;
+            text-align: center; /* Center text inside the wrapper */
+            margin-top: 50px; /* Adjust top margin as needed */
+            margin-bottom: 50px; /* Add bottom margin */
+        }
+
+        .grid .row {
+            margin-bottom: 24px; /* Add some spacing between rows */
+        }
+
+        .center {
+            text-align: center; /* Center text horizontally */
+        }
+
+        h1, .h2 {
+            font-size: 2em; /* Larger font size for headers */
+            margin: 10px 0; /* Adjust margin as needed */
+        }
+
+        footer {
+            width: 100%;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            position: absolute;
+            bottom: 0;
+        }
+
+        .refill {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="center">RASPBERRY PI HUB</h1>
+    <div class="h2 center">Science Camp 2024</div>
+    <div class="sensore-data-wrapper">
+        <div class="grid">
+            <div class="row">
+                <div class="col-8">
+                    ESP32LR20 Relay's
+                </div>
+                <div class="col-4">
+                    <%= config.esp32lr20Relay1 ?? 'n.a' %> / <%= config.esp32lr20Relay2 || 'n.a' %>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-8">
+                    Temperatur / Temperature
+                </div>
+                <div class="col-4">
+                    <%= config.hydroponicsKitTemperature ? config.hydroponicsKitTemperature + ' °C' : 'n.a' %>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-8">
+                    PH-Wert / PH-Value
+                </div>
+                <div class="col-4">
+                    <%= config.hydroponicsKitPh ?? 'n.a' %>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-8">
+                    EC-Wert / EC-Value
+                </div>
+                <div class="col-4">
+                    <%= config.hydroponicsKitEc ? config.hydroponicsKitEc + ' mS/cm' : 'n.a' %>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-8">
+                    Umgebungstemperatur / Ambient temperature
+                </div>
+                <div class="col-4">
+                    <%= config.environmentTemperature ? config.environmentTemperature + ' °C' : 'n.a' %>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-8">
+                    Luftfeuchtigkeit / Humidity
+                </div>
+                <div class="col-4">
+                    <%= config.environmentHumidity ? config.environmentHumidity + ' %' : 'n.a' %>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-8">
+                    Luftdruck / Air pressure
+                </div>
+                <div class="col-4">
+                    <%= config.environmentPressure ? config.environmentPressure + ' kPa' : 'n.a' %>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-8">
+                    Helligkeit / Brightness
+                </div>
+                <div class="col-4">
+                    <%= config.lightIntensity ?? 'n.a' %>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-8">
+                    Wasserstand / Water level
+                </div>
+                <div class="col-4">
+                    <% if (config.waterLevel && config.waterLevel < 37) { %>
+                        <span class="refill">Refill!</span>
+                    <% } else { %>
+                        <%= config.waterLevel ? config.waterLevel + ' %' : 'n.a' %>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer>
+        &copy; since 2024 by VE.PLANT GmbH. More you will find <a target="_blank" href="https://www.ve-plant.com" title="VE.PLANT aus Erfurt hat BOCK auf GRÜN!">here</a>.
+    </footer>
+    <script>
+        setTimeout(function(){
+            window.location.reload(1);
+        }, 5000); // Refresh the page every 5 seconds
+    </script>
+</body>
+</html>
