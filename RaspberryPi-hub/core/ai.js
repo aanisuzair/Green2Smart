@@ -3,9 +3,9 @@ export default class AIControl {
     #opts = {
         lightIntensityThreshold: 500, // Default: 500 when should the light turn on/off if the sun is bright enough
         lightTimeStart: 8 * 60 * 60 * 1000, // Default: 8am when should the light start (time / clock) in milliseconds
-        lightTimeStop: 23 * 60 * 60 * 1000, // Default: 8pm when should the light stop (time / clock) in milliseconds
-        lightRelayName: 'relay1', // Corrected: relay1 is the name of the light used for mqtt
-        pumpRelayName: 'relay2', // Corrected: relay2 is the name of the pump used for mqtt
+        lightTimeStop: 20 * 60 * 60 * 1000, // Default: 8pm when should the light stop (time / clock) in milliseconds
+        lightRelayName: 'relay1', // relay1 is the name of the pump used for mqtt
+        pumpRelayName: 'relay2', // relay2 is the name of the light used for mqtt
         pumpOnTime1: { hour: 9, minute: 0 }, // First pump start time (9 AM)
         pumpOnTime2: { hour: 15, minute: 0 }, // Second pump start time (3 PM)
         pumpDuration: 10 * 60 * 1000 // Pump duration in milliseconds (5 minutes)
@@ -55,7 +55,7 @@ export default class AIControl {
             
             // set time in start and end date
             dateStart.setHours(8, 0, 0, 0); // 8 AM
-            dateStop.setHours(23, 0, 0, 0); // 8 PM
+            dateStop.setHours(20, 0, 0, 0); // 8 PM
 
             console.log(`Current time: ${now}`);
             console.log(`Light time range: ${dateStart} to ${dateStop}`);
