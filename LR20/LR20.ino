@@ -87,7 +87,7 @@ void setupPins() {
   pinMode(RELAY_PIN_1, OUTPUT);
   pinMode(RELAY_PIN_2, OUTPUT);
 
-  digitalWrite(RELAY_PIN_1, HIGH);
+  digitalWrite(RELAY_PIN_1, LOW);
   digitalWrite(RELAY_PIN_2, LOW);
 }
 
