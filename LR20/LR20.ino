@@ -1,5 +1,3 @@
-#include <PubSubClient.h>
-
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <Arduino.h>
@@ -28,7 +26,7 @@ const int RELAY_PIN_2 = 25;
 
 // pump
 const unsigned long PUMP_INTERVAL_INACTIVE_AS_MS = 1000 * 60 * 60 * 3; // 3h
-const unsigned long PUMP_INTERVAL_ACTIVE_AS_MS = 1000 * 60 * 1; // 7min
+const unsigned long PUMP_INTERVAL_ACTIVE_AS_MS = 1000 * 60 * 7; // 7min
 const float MIN_WATER_LEVEL = 15.0;
 const int WATER_LEVEL_BUFFER_SIZE = 5;
 const float WATER_LEVEL_REFILL_THRESHOLD = 10.0;
@@ -46,7 +44,7 @@ WaterLevelEntry waterLevelBuffer[WATER_LEVEL_BUFFER_SIZE];
 // light
 const int MIN_BRIGHTNESS_AS_LUME = 800;
 const unsigned int LIGHT_TIMESPAN_START_AS_HOUR =1000 * 60 * 60 * 8;
-const unsigned int LIGHT_TIMESPAN_END_AS_HOUR =1000 * 60 * 35 * 16 ;
+const unsigned int LIGHT_TIMESPAN_END_AS_HOUR =1000 * 60 * 60 * 20 ;
 unsigned int currentHour = 0;
 
 // logging
