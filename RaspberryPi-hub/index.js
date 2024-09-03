@@ -175,7 +175,7 @@ updater.start();
                 // Reduced frequency for "No data" message
                 console.log("No valid distance level received yet. Waiting for data...");
             }
-        }, 1000); // Check every 5 seconds
+        }, 1000); // Check every seconds
     } catch (error) {
         console.log("Failed to open serial port on ${serialPortUltrasonic}");
     }
