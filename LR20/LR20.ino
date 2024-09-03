@@ -1,301 +1,344 @@
-#include <WiFi.h>
-#include <PubSubClient.h>
-#include <Arduino.h>
-#include <ArduinoJson.h>
+#include <Arduino.h> // default lib
+#include <WiFi.h> // lib used to handle wifi connetion
+#include <PubSubClient.h> // lib used to handle mqtt
+#include <EEPROM.h> // lib used to store config files
 
-// wifi
-const char* SSID = "wall01";
-//const char* WIFI_PASSWORD = "camperfurt";
+// GPIO pin defines
+#define RELAY_PIN1 33
+#define RELAY_PIN2 25
 
-// mqtt
-const char* MQTT_SERVER_ADRESS = "10.42.0.1";
-const int MQTT_PORT = 1883;
-const char* MQTT_USERNAME = "admin";
-const char* MQTT_PASSWORD = "root";
-const char* MQTT_CLIENT_ID = "mqtt_esp32lr20";
+// function overview / pre-declaration for use in other functions
+void wifiConnect();
+void wifiAutoReconnect();
+void mqttReconnect();
+void mqttPublishMessage(String topic, String msg);
+void mqttUpdateState();
+void mqttAutoReconnect();
+void mqttCallback(char *topic, byte *payload, unsigned int length);
+void configLoad();
+void configErase();
+void configSave();
 
-const char* ARDUINO_NANO_TOPIC_STATE = "arduinoEnvironment/state";
-const char* WATER_LEVEL_TOPIC_STATE = "waterLevel/state";
-const char* PI_TIME_TOPIC = "pi/time";
-const char* PUMP_TOPIC_STATE = "esp32lr20/pump/state";
-const char* LIGHT_TOPIC_STATE = "esp32lr20/light/state";
+// ------ INTERNAL STORE -------
+typedef struct
+{
+    uint8_t valid;  // 0=no configuration, 1=valid configuration
+    uint8_t relay1; // stores state of the relay 0 = off / 1 = on
+    uint8_t relay2; // stores state of the relay 0 = off / 1 = on
+} configData_t;
 
-// relay
-const int RELAY_PIN_1 = 33;
-const int RELAY_PIN_2 = 25;
+configData_t config; // stores config
 
-// pump
-const unsigned long PUMP_INTERVAL_INACTIVE_AS_MS = 1000 * 60 * 60 * 3; // 3h
-const unsigned long PUMP_INTERVAL_ACTIVE_AS_MS = 1000 * 60 * 7; // 7min
-const float MIN_WATER_LEVEL = 15.0;
-const int WATER_LEVEL_BUFFER_SIZE = 5;
-const float WATER_LEVEL_REFILL_THRESHOLD = 10.0;
+// ------ WIFI DATA -------
+const char *wifiSSID = "wall01";
+//const char *wifiPassword = "camperfurt";
 
-struct WaterLevelEntry {
-  float level;
-  unsigned long timestamp;
-};
+unsigned long wifiPreviousMillis = 0;
+unsigned long wifiInterval = 30000;
 
-unsigned long pumpPreviousTimeAsMs = 0;
-bool isPumpActive = false;
-int waterLevelBufferIndex = 0;
-WaterLevelEntry waterLevelBuffer[WATER_LEVEL_BUFFER_SIZE];
+// ------ MQTT DATA -------
+const char *mqttBroker = "10.42.0.1";
+const char *mqttClientId = "esp32lr20";
+const char *mqttUsername = "admin";
+const char *mqttPassword = "root";
+const int mqttPort = 1883;
+WiFiClient mqttWifiClient;
 
-// light
-const int MIN_BRIGHTNESS_AS_LUME = 800;
-const unsigned int LIGHT_TIMESPAN_START_AS_HOUR =1000 * 60 * 60 * 8;
-const unsigned int LIGHT_TIMESPAN_END_AS_HOUR =1000 * 60 * 60 * 20 ;
-unsigned int currentHour = 0;
+PubSubClient mqttClient;
+unsigned long mqttPreviousMillis = 0;
+unsigned long mqttInterval = 5000;
+unsigned long mqttStateDelay = 10000;
+unsigned long mqttStateTimer = 0;
 
-// logging
-const bool IS_PRINTING_INCOMING_MESSAGES = true;
+/**
+ * This function will create a connection tho the given wifi, 
+ * defined in the const variables before
+ */
+void wifiConnect()
+{
+    // Connect to the network
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(wifiSSID);
 
-// clients
-WiFiClient wifiClient;
-PubSubClient client(wifiClient);
+    // print status to serial port
+    Serial.print("Connecting to ");
+    Serial.print(wifiSSID);
+    Serial.println(" ...");
 
-void setup() {
-  Serial.begin(115200);
-  while (!Serial);
-  delay(100);
+    // try the connection 30 seconds
+    int i = 0;
+    while (WiFi.status() != WL_CONNECTED)
+    { // Wait for the Wi-Fi to connect
+        delay(1000);
+        Serial.print(++i);
+        Serial.print(' ');
 
-  setupMQTT();
-  setupPins();
-  setupWaterLevelBuffer();
-
-  connectWiFi();
-  connectMQTT();
-
-  activatePump();
+        if (i > 30)
+        {
+            break;
+        }
+    }
 }
 
-void loop() {
-  if(!client.connected()) {
-    connectMQTT();
-  }
-
-  client.loop();
-  handlePump();
+/**
+ * This function will handle a auto-reconnect to the given wifi
+ * with an delay of wifiInterval (Default: 30s) between the next try
+ */
+void wifiAutoReconnect()
+{
+    unsigned long currentMillis = millis();
+    // if WiFi is down, try reconnecting
+    if ((WiFi.status() != WL_CONNECTED) && (currentMillis - wifiPreviousMillis >= wifiInterval))
+    {
+        Serial.print(millis());
+        Serial.println("Reconnecting to WiFi...");
+        WiFi.disconnect();
+        WiFi.reconnect();
+        wifiPreviousMillis = currentMillis;
+    }
 }
 
-void setupMQTT() {
-  client.setServer(MQTT_SERVER_ADRESS, MQTT_PORT);
-  client.setCallback(onMessageIncomingCallback);
+/**
+ * This function will handle connect and reconnect of the mqtt client.
+ */
+void mqttReconnect()
+{
+    if (!mqttClient.connected())
+    {
+        Serial.println("Try to connect MQTT");
+        if (mqttClient.connect(mqttClientId, mqttUsername, mqttPassword))
+        {
+            Serial.println("Public MQTT broker connected!");
+            size_t len;
+            {
+                String key = String(mqttClientId) + "/cmd/relay1/on";
+                len = key.length() + 1;
+                char strBuffer[len];
+                key.toCharArray(strBuffer, len);
+                mqttClient.subscribe(strBuffer);
+            }
+            {
+                String key = String(mqttClientId) + "/cmd/relay1/off";
+                len = key.length() + 1;
+                char strBuffer[len];
+                key.toCharArray(strBuffer, len);
+                mqttClient.subscribe(strBuffer);
+            }
+            {
+                String key = String(mqttClientId) + "/cmd/relay2/on";
+                len = key.length() + 1;
+                char strBuffer[len];
+                key.toCharArray(strBuffer, len);
+                mqttClient.subscribe(strBuffer);
+            }
+            {
+                String key = String(mqttClientId) + "/cmd/relay2/off";
+                len = key.length() + 1;
+                char strBuffer[len];
+                key.toCharArray(strBuffer, len);
+                mqttClient.subscribe(strBuffer);
+            }
+            {
+                String key = String(mqttClientId) + "/cmd/state";
+                len = key.length() + 1;
+                char strBuffer[len];
+                key.toCharArray(strBuffer, len);
+                mqttClient.subscribe(strBuffer);
+            }
+        }
+        else
+        {
+            Serial.println("Public MQTT broker not connected! Error: " + mqttClient.state());
+            Serial.println(" retrying in 5 seconds");
+            mqttPreviousMillis = millis();
+        }
+    }
 }
 
-void setupPins() {
-  pinMode(RELAY_PIN_1, OUTPUT);
-  pinMode(RELAY_PIN_2, OUTPUT);
-
-  digitalWrite(RELAY_PIN_1, LOW);
-  digitalWrite(RELAY_PIN_2, LOW);
+/**
+ * This function will handle a auto-reconnect to the given mqtt broker
+ * with an delay of mqttInterval (Default: 5s) between the next try
+ */
+void mqttAutoReconnect()
+{
+    // handle reconnect mqtt with a 5 second delay
+    if (!mqttClient.connected() && mqttPreviousMillis + mqttInterval < millis())
+    {
+        mqttReconnect();
+    }
 }
 
-void setupWaterLevelBuffer() {
-  for (int i = 0; i < WATER_LEVEL_BUFFER_SIZE; i++) {
-    // TODO: init with -1
-    waterLevelBuffer[i].level = 100.0;
-    waterLevelBuffer[i].timestamp = 0;
-  }
+/**
+ * This function will help u to sent messages to the mqtt broker by topic and message text
+ */
+void mqttPublishMessage(String topic, String msg)
+{
+    size_t len = topic.length() + 1;
+    char topicArray[len];
+    topic.toCharArray(topicArray, len);
+
+    size_t lenP = msg.length() + 1;
+    char payloadArray[lenP];
+    msg.toCharArray(payloadArray, lenP);
+
+    mqttClient.publish(topicArray, payloadArray);
 }
 
-void connectWiFi() {
-  WiFi.begin(SSID);
-  while (!wifiIsConnected()) {
-    Serial.println("Connecting to WiFi..");
-    //Serial.println("PI_TIME_TOPIC")
+/**
+ * This function will sent the current relays states (on or off) as json to the mqtt broker
+ */
+void mqttUpdateState()
+{
+    String msg = "{\"relay1\":\"";
+    msg += (config.relay1 == HIGH ? "on" : "off");
+    msg += "\",\"relay2\":\"";
+    msg += (config.relay2 == HIGH ? "on" : "off");
+    msg += "\"}";
+    mqttPublishMessage(String(mqttClientId) + "/state", msg);
+}
+
+/**
+ * This function will handle all incoming messages by the mqtt broker
+ */
+void mqttCallback(char *topic, byte *payload, unsigned int length)
+{
+    Serial.print("Incoming message [");
+    Serial.print(topic);
+    Serial.print("]: ");
+    for (unsigned int i = 0; i < length; ++i)
+    {
+        Serial.print((char)payload[i]);
+    }
+    Serial.println();
+
+    String topicStr = String(topic);
+    if (topicStr.equals(String(mqttClientId) + "/cmd/relay1/on"))
+    {
+        digitalWrite(RELAY_PIN1, HIGH);
+        config.relay1 = HIGH;
+    }
+    else if (topicStr.equals(String(mqttClientId) + "/cmd/relay1/off"))
+    {
+        digitalWrite(RELAY_PIN1, LOW);
+        config.relay1 = LOW;
+    }
+    else if (topicStr.equals(String(mqttClientId) + "/cmd/relay2/on"))
+    {
+        digitalWrite(RELAY_PIN2, HIGH);
+        config.relay2 = HIGH;
+    }
+    else if (topicStr.equals(String(mqttClientId) + "/cmd/relay2/off"))
+    {
+        digitalWrite(RELAY_PIN2, LOW);
+        config.relay2 = LOW;
+    }
+    else if (topicStr.equals(String(mqttClientId) + "/cmd/state"))
+    {
+        // do nothing, because the state is sent at the end of this function    
+    }
+
+    configSave();
+    mqttUpdateState();
+}
+
+/**
+ * This function will load the stored data from "disc"
+ */
+void configLoad()
+{
+    // Loads configuration from EEPROM into RAM
+    EEPROM.begin(4095);
+    EEPROM.get(0, config);
+    EEPROM.end();
+}
+
+/**
+ * This function will erase the stored data at the "disc"
+ */
+void configErase()
+{
+    // Reset EEPROM bytes to '0' for the length of the data structure
+    EEPROM.begin(4095);
+    uint16_t len = sizeof(config);
+    for (int i = 0; i < len; i++)
+    {
+        EEPROM.write(i, 0);
+    }
     delay(500);
-  }
-
-  Serial.print("Connected to WiFi with IP: ");
-  Serial.println(WiFi.localIP());
+    EEPROM.commit();
+    EEPROM.end();
 }
 
-bool wifiIsConnected() {
-  return WiFi.status() == WL_CONNECTED;
+/**
+ * This function will save the stored data to "disc"
+ */
+void configSave()
+{
+    config.valid = 1;
+    // Save configuration from RAM into EEPROM
+    EEPROM.begin(4095);
+    EEPROM.put(0, config);
+    delay(500);
+    EEPROM.commit(); // Only needed for ESP8266 to get data written
+    EEPROM.end();    // Free RAM copy of structure
 }
 
-void connectMQTT() {
-  while(!client.connected()) {
-    Serial.println("Connecting to MQTT broker...");
-    if (client.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD)) {
-      Serial.println("connected");
-      client.subscribe(ARDUINO_NANO_TOPIC_STATE);
-    } else {
-      Serial.print("failed with error: ");
-      Serial.print(client.state());
-      delay(1000);
+/**
+ * This function is called after boot by default, it is used to setup all needed stuff for the program
+ */
+void setup()
+{
+    Serial.begin(9600);
+
+    // initial setup/load of the config
+    configLoad();
+    if (config.valid != 1)
+    {
+        configErase();
     }
-  }
+
+    // start wifi connection
+    wifiConnect();
+
+    // start mqtt connection
+    mqttClient.setClient(mqttWifiClient);
+    mqttClient.setServer(mqttBroker, mqttPort);
+    mqttClient.setCallback(mqttCallback);
+
+    Serial.println("Start MQTT_Connect");
+    mqttReconnect();
+    // Print local IP address and start web server
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP()); // show ip address when connected on serial monitor.
+
+    // setup pin modes
+    pinMode(RELAY_PIN1, OUTPUT);
+    pinMode(RELAY_PIN2, OUTPUT);
+
+    // setup pins by lates config
+    digitalWrite(RELAY_PIN1, config.relay1);
+    digitalWrite(RELAY_PIN2, config.relay2);
+
+    // initial state send to mqtt broker
+    mqttUpdateState();
 }
 
-void publishMQTTMessage(const char* topic, const char* payload) {
-  client.publish(topic, payload);
-  Serial.print("Published message: ");
-  Serial.println(payload);
-}
+/**
+ * This function is called by the esp every round. So here the work will happen!
+ */
+void loop()
+{
+    // handle auto reconnect wifi/mqtt if needed
+    wifiAutoReconnect();
+    mqttAutoReconnect();
 
-void handlePump() {
-  const float currentWaterLevel = getCurrentWaterLevel();
-  if(currentWaterLevel < MIN_WATER_LEVEL) {
-    Serial.print("Current water level is to low: ");
-    Serial.println(currentWaterLevel);
-    
-    return;
-  }
+    // handle mqtt loop
+    mqttClient.loop();
 
-  const unsigned long pumpCurrentTimeAsMs = millis();
-  if (!isPumpActive && isTimerOver(pumpCurrentTimeAsMs, pumpPreviousTimeAsMs, PUMP_INTERVAL_INACTIVE_AS_MS)) {
-    activatePump();
-    pumpPreviousTimeAsMs = pumpCurrentTimeAsMs;
-  }
-  else if(isPumpActive && isTimerOver(pumpCurrentTimeAsMs, pumpPreviousTimeAsMs, PUMP_INTERVAL_ACTIVE_AS_MS)) {
-    deactivatePump();
-    pumpPreviousTimeAsMs = pumpCurrentTimeAsMs;
-  }
-}
-
-void activatePump() {
-  isPumpActive = true;
-  digitalWrite(RELAY_PIN_2, HIGH);
-  publishMQTTMessage(PUMP_TOPIC_STATE, "pump: on");
-}
-
-void deactivatePump() {
-  isPumpActive = false;
-  digitalWrite(RELAY_PIN_2, LOW);
-  publishMQTTMessage(PUMP_TOPIC_STATE, "pump: off");
-}
-
-bool isTimerOver(const unsigned long current, const unsigned long previous, const long interval) {
-  return current - previous >= interval;
-}
-
-void onMessageIncomingCallback(char* topic, byte* payload, unsigned int length) {
-  if(IS_PRINTING_INCOMING_MESSAGES) {
-    printIncomingMessage(topic, payload, length);
-  }
-
-
-/////////////////////////////////
-  if(String(topic) == ARDUINO_NANO_TOPIC_STATE) {
-    const JsonObject jsonObject = getJSONObject(payload, length);
-    const float brightness = jsonObject["brightness"];
-    handleLight(brightness);
-  }
-  //////////////////////////////
-
-
-
-  else if(String(topic) == WATER_LEVEL_TOPIC_STATE) {
-    const JsonObject jsonObject = getJSONObject(payload, length);
-    const float waterLevel = jsonObject["waterLevel"];
-    onWaterLevelMessageReceived(waterLevel);
-  }
-
-  else if(String(topic) == PI_TIME_TOPIC) {
-    const JsonObject jsonObject = getJSONObject(payload, length);
-    currentHour = jsonObject["hour"];
-  }
-  else {
-    Serial.print("No handler for this topic: ");
-    Serial.println(topic);
-  }
-}
-
-void printIncomingMessage(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived with topic [");
-  Serial.print(topic);
-  Serial.println("] ");
-
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
-
-  Serial.println();
-}
-
-JsonObject getJSONObject(byte* payload, unsigned int length) {
-  char messageBuffer[length + 1];
-  DynamicJsonDocument doc(1024);
-
-  memcpy(messageBuffer, payload, length);
-  messageBuffer[length] = '\0';
-
-  const DeserializationError error = deserializeJson(doc, messageBuffer);
-  if(error) {
-    Serial.print("JSON parsing failed: ");
-    Serial.println(error.c_str());
-  }
-
-  const JsonObject object = doc.as<JsonObject>();
-  return object;
-}
-
-void handleLight(const float brightness) {
-  if(!isInLightTimespan(currentHour)) {
-    Serial.print("Current hour: ");
-    Serial.println(currentHour);
-    deactivateLight();
-    return;
-  }
-
-  if(isEnoughLight(brightness)) {
-    deactivateLight();
-    return;
-  }
-
-  activateLight();
-}
-
-void activateLight() {
-  digitalWrite(RELAY_PIN_1, HIGH);
-  publishMQTTMessage(LIGHT_TOPIC_STATE, "light=on");
-}
-
-void deactivateLight() {
-  digitalWrite(RELAY_PIN_1, LOW);
-  publishMQTTMessage(LIGHT_TOPIC_STATE, "light=off");
-}
-
-bool isInLightTimespan(const unsigned int currentHour) {
-  return (currentHour >= LIGHT_TIMESPAN_START_AS_HOUR) &&
-         (currentHour <= LIGHT_TIMESPAN_END_AS_HOUR);
-}
-
-bool isEnoughLight(const float brightness) {
-  return brightness >= MIN_BRIGHTNESS_AS_LUME;
-}
-
-void onWaterLevelMessageReceived(const float waterLevel) {
-  updateWaterLevelBuffer(waterLevel);
-
-  if(waterLevelBufferIndex > 0) {
-    if (isWaterRefilled()) {
-      activatePump();
-      pumpPreviousTimeAsMs = millis();
-      Serial.println("Water refill detected!");
+    // send every DELAY a state to MQTT
+    if ((millis() - mqttStateTimer) > mqttStateDelay)
+    {
+        mqttUpdateState();
+        mqttStateTimer = millis();
     }
-  }
-}
-
-bool isWaterRefilled() {
-  const float previousWaterLevel = waterLevelBuffer[(waterLevelBufferIndex - 1) % WATER_LEVEL_BUFFER_SIZE].level;
-  const float diff = abs(getCurrentWaterLevel() - previousWaterLevel);
-
-  return diff >= WATER_LEVEL_REFILL_THRESHOLD;
-}
-
-void updateWaterLevelBuffer(const float waterLevel) {
-  waterLevelBuffer[waterLevelBufferIndex].level = waterLevel;
-  waterLevelBuffer[waterLevelBufferIndex].timestamp = millis();
-  waterLevelBufferIndex = (waterLevelBufferIndex + 1) % WATER_LEVEL_BUFFER_SIZE;
-}
-
-float getCurrentWaterLevel() {
-  if(waterLevelBufferIndex < 0 || waterLevelBufferIndex > WATER_LEVEL_BUFFER_SIZE - 1) {
-    return -1.0;
-  }
-
-  return waterLevelBuffer[waterLevelBufferIndex].level;
 }
