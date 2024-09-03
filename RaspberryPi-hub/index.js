@@ -1,4 +1,3 @@
-
 import { Sequelize } from 'sequelize';
 import SQLite from 'sqlite3';
 import path from 'path';
