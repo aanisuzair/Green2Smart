@@ -18,7 +18,7 @@ export default class Update {
 
     #db = null;
     #updateUrl ="https://sc2024.ve-plant.com/teams/team02";
-    #secret ="cvAh3913!avkg#23AD";
+    #secret ="23Aca#14asd§dasMds";
     #updateInterval = 10;
     #intervalId = null;
     #updateRunning = false; // if request is running, the interval will not trigged
