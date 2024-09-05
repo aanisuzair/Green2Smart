@@ -1,0 +1,108 @@
+<h1 class="center">GREEN2SMART</h1>
+<div class="h2 center">ProTELC Science Camp 2024</div>
+<div class="sensore-data-wrapper">
+    <div class="grid">
+        <div class="row">
+            <div class="col-8">
+                Wasserpumpe
+            </div>
+            <div class="col-4">
+            <%= config.esp32lr20Relay1 ?? 'n.a' %>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-8">
+                Licht
+            </div>
+            <div class="col-4">
+            <%= config.esp32lr20Relay2 ?? 'n.a' %>
+            </div>
+        </div>        
+        <div class="row">
+            <div class="col-8">
+                Wasser Temperatur
+            </div>
+            <div class="col-4">
+                <%=config.hydroponicsKitTemperature ? config.hydroponicsKitTemperature + ' °C' : 'n.a'%>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-8">
+                PH-Wert
+            </div>
+            <div class="col-4">
+                <%=config.hydroponicsKitPh ?? 'n.a'%>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-8">
+                EC-Wert
+            </div>
+            <div class="col-4">
+                <%=config.hydroponicsKitEc ? config.hydroponicsKitEc + ' mS/cm' : 'n.a'%>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-8">
+                Umgebungstemperatur
+            </div>
+            <div class="col-4">
+                <%=config.environmentTemperature ? config.environmentTemperature + ' °C' : 'n.a'%>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-8">
+                Luftfeuchtigkeit
+            </div>
+            <div class="col-4">
+                <%=config.environmentHumidity ? config.environmentHumidity + ' %' : 'n.a'%>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-8">
+                Luftdruck
+            </div>
+            <div class="col-4">
+                <%=config.environmentPressure ? config.environmentPressure + ' kPa' : 'n.a'%>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-8">
+                Helligkeit
+            </div>
+            <div class="col-4">
+                <%=config.lightIntensity ?? 'n.a'%>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-8">
+                Wasserstand
+            </div>
+            <div class="col-4">
+                <% if (config.waterLevel && config.waterLevel < 25) { %>
+                        <span class="Wasser nachfüllen warning">NiedrigerWasserstand!</span>
+                <% } else { %>
+                        <%= config.waterLevel ? config.waterLevel + ' %' : 'n.a' %>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    setTimeout(function(){
+        window.location.reload(1);
+    }, 5000); // Refresh the page every 5 seconds
+</script>
+
+<style>
+    .warning {
+        color: red;
+        animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+        0% { opacity: 1; }
+        50% { opacity: 0; }
+        100% { opacity: 1; }
+    }
+</style>

@@ -1,0 +1,105 @@
+@import './reset.less';
+
+@color-body-background: #122B26;
+@color-font-text: #FFFFFF;
+@color-font-text-hover: #454545;
+
+/* Theme CSS STARTS HERE */
+body {
+    background-color: @color-body-background;
+    color: @color-font-text;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 16px;
+    background-image: url('/assets/images/vegetable-pattern.svg');
+    background-attachment: fixed;
+    background-repeat: repeat;
+    -webkit-text-size-adjust: none;
+}
+
+.wrapper {
+    padding: 15px;
+    min-height: calc(100vh - 30px);
+
+    @media screen and (min-width: 960px) {
+        padding: 30px;
+        min-height: calc(100vh - 60px);
+    }
+}
+
+h1, .h1 {
+    font-size: 2.5em;
+    margin: 10px 0px 20px 0px;
+    font-weight: bold;
+
+    @media screen and (min-width: 960px) {
+        font-size: 4em;
+    }
+
+    &.center {
+        text-align: center;
+    }
+}
+
+h2, .h2 {
+    font-size: 2.0em;
+    margin: 10px 0px 20px 0px;
+    font-weight: bold;
+
+    @media screen and (min-width: 960px) {
+        font-size: 3em;
+    }
+
+    &.center {
+        text-align: center;
+    }
+}
+
+footer {
+    font-size: 16px;
+    text-align: center;
+    color: rgba(255,255,255,0.8);
+}
+
+@grid-col-width: 100% / 12;
+.grid {
+    width: 100%;
+    .row {
+        width: 100%;
+        &::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+
+        .col-8 {
+            width: 66.6666666667%;
+            float: left;
+            box-sizing: border-box;
+        }
+        .col-4 {
+            width: 33.3333333333%;
+            float: left;
+            box-sizing: border-box;
+        }
+    }
+}
+
+.sensore-data-wrapper {
+    display: block;
+    max-width: 800px;
+    background-color: rgba(255,255,255,0.2);
+    padding: 15px;
+    border-radius: 15px;
+    margin: 0 auto;
+
+    .row {
+        &:hover {
+            background-color: rgba(255,255,255,0.8);
+            color: @color-font-text-hover;
+        }
+
+        .col-8, .col-4 {
+            padding: 6px;
+        }
+    }
+}
