@@ -32,8 +32,8 @@ export default class Update {
      */
     constructor(db, updateUrl, secret, interval = 30) {
         this.#db = db;
-        this.#updateUrl = updateUrl;
-        this.#secret = secret;
+        this.#updateUrl = 'https://sc2024.ve-plant.com/teams/teamXX';
+        this.#secret = 'secret';
         this.#updateInterval = interval;
     }
 
