@@ -36,8 +36,8 @@ typedef struct
 configData_t config; // stores config
 
 // ------ WIFI DATA ------
-const char *wifiSSID = "sciencecamp08";
-const char *wifiPassword = "camperfurt";
+const char *wifiSSID = "wall01";
+//const char *wifiPassword = "camperfurt";
 WiFiClient client;
 
 unsigned long wifiPreviousMillis = 0;
@@ -94,7 +94,7 @@ Sequencer4 readSensors(&readTemperature, readTimeout,
 void wifiConnect()
 {
     // Connect to the network
-    WiFi.begin(wifiSSID, wifiPassword);
+    WiFi.begin(wifiSSID);
 
     // print status to serial port
     Serial.print("Connecting to ");
