@@ -36,7 +36,7 @@ typedef struct
 configData_t config; // stores config
 
 // ------ WIFI DATA ------
-const char *wifiSSID = "wall01";
+const char *wifiSSID = "wall02";
 //const char *wifiPassword = "camperfurt";
 WiFiClient client;
 
