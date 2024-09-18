@@ -10,9 +10,9 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
-const char* ssid = "wall02";
+const char* ssid = "wall01";
 //const char* wifiPassword = "camperfurt";
-const char* mqttServer = "192.168.20.1";
+const char* mqttServer = "10.42.0.1";
 const char* mqttClientId = "esp32hykit";
 const char* mqttUsername = "admin";
 const char* mqttPassword = "root";
