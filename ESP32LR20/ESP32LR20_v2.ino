@@ -248,7 +248,7 @@ void setup()
     digitalWrite(RELAY_PIN1, config.relay1);
     digitalWrite(RELAY_PIN2, config.relay2);
 
-    mqttUpdateState(); rpi
+    mqttUpdateState();
     
 }
 
